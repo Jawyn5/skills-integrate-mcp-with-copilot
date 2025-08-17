@@ -169,7 +169,6 @@ def remove_from_activity(activity_name: str, email: str, teacher: str = Depends(
 @app.get("/")
 
 
-@app.delete("/activities/{activity_name}/unregister")
 def unregister_from_activity(activity_name: str, email: str):
     """Unregister a student from an activity"""
     # Validate activity exists
