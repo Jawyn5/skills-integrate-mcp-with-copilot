@@ -5,14 +5,39 @@ A super simple FastAPI application that allows students to view and sign up
 for extracurricular activities at Mergington High School.
 """
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Depends
+from fastapi.security import HTTPBasic, HTTPBasicCredentials
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import RedirectResponse
 import os
+import json
 from pathlib import Path
+from typing import Optional
 
 app = FastAPI(title="Mergington High School API",
               description="API for viewing and signing up for extracurricular activities")
+
+# Set up authentication
+security = HTTPBasic()
+
+def get_current_teacher(credentials: HTTPBasicCredentials = Depends(security)) -> Optional[str]:
+    # Load teachers from json file
+    current_dir = Path(__file__).parent
+    teachers_file = os.path.join(current_dir, "teachers.json")
+    
+    with open(teachers_file, 'r') as f:
+        teachers_data = json.load(f)
+    
+    for teacher in teachers_data["teachers"]:
+        if (credentials.username == teacher["username"] and 
+            credentials.password == teacher["password"]):
+            return credentials.username
+    
+    raise HTTPException(
+        status_code=401,
+        detail="Invalid credentials",
+        headers={"WWW-Authenticate": "Basic"},
+    )
 
 # Mount the static files directory
 current_dir = Path(__file__).parent
@@ -89,8 +114,8 @@ def get_activities():
 
 
 @app.post("/activities/{activity_name}/signup")
-def signup_for_activity(activity_name: str, email: str):
-    """Sign up a student for an activity"""
+def signup_for_activity(activity_name: str, email: str, teacher: str = Depends(get_current_teacher)):
+    """Sign up a student for an activity (requires teacher authentication)"""
     # Validate activity exists
     if activity_name not in activities:
         raise HTTPException(status_code=404, detail="Activity not found")
@@ -107,7 +132,35 @@ def signup_for_activity(activity_name: str, email: str):
 
     # Add student
     activity["participants"].append(email)
-    return {"message": f"Signed up {email} for {activity_name}"}
+    return {
+        "status": "success",
+        "message": f"Added {email} to {activity_name}"
+    }
+
+@app.delete("/activities/{activity_name}/signup")
+def remove_from_activity(activity_name: str, email: str, teacher: str = Depends(get_current_teacher)):
+    """Remove a student from an activity (requires teacher authentication)"""
+    # Validate activity exists
+    if activity_name not in activities:
+        raise HTTPException(status_code=404, detail="Activity not found")
+
+    # Get the specific activity
+    activity = activities[activity_name]
+
+    # Validate student is registered
+    if email not in activity["participants"]:
+        raise HTTPException(status_code=404, detail="Student not found in activity")
+
+    # Remove student
+    activity["participants"].remove(email)
+
+    return {
+        "status": "success",
+        "message": f"Removed {email} from {activity_name}"
+    }
+
+# Redirect to frontend
+@app.get("/")
 
 
 @app.delete("/activities/{activity_name}/unregister")
