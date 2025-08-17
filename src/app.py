@@ -27,7 +27,13 @@ def get_current_teacher(credentials: HTTPBasicCredentials = Depends(security)) -
     
     with open(teachers_file, 'r') as f:
         teachers_data = json.load(f)
-    
+# Load teachers from json file once at startup and cache
+current_dir = Path(__file__).parent
+teachers_file = os.path.join(current_dir, "teachers.json")
+with open(teachers_file, 'r') as f:
+    teachers_data = json.load(f)
+
+def get_current_teacher(credentials: HTTPBasicCredentials = Depends(security)) -> Optional[str]:
     for teacher in teachers_data["teachers"]:
         if (credentials.username == teacher["username"] and 
             hmac.compare_digest(credentials.password, teacher["password"])):
