@@ -30,7 +30,7 @@ def get_current_teacher(credentials: HTTPBasicCredentials = Depends(security)) -
     
     for teacher in teachers_data["teachers"]:
         if (credentials.username == teacher["username"] and 
-            credentials.password == teacher["password"]):
+            hmac.compare_digest(credentials.password, teacher["password"])):
             return credentials.username
     
     raise HTTPException(
